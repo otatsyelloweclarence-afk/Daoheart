@@ -43,15 +43,10 @@
     flex-shrink: 0;
   }
 
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
+  .header-left { display: flex; align-items: center; gap: 10px; }
 
   .pulse-dot {
-    width: 8px;
-    height: 8px;
+    width: 8px; height: 8px;
     border-radius: 50%;
     background: var(--green);
     animation: pulse 2s infinite;
@@ -72,10 +67,7 @@
 
   .title span { color: var(--accent); }
 
-  .header-actions {
-    display: flex;
-    gap: 8px;
-  }
+  .header-actions { display: flex; gap: 8px; }
 
   .btn-sm {
     background: transparent;
@@ -174,8 +166,7 @@
   .msg.ai { align-self: flex-start; }
 
   .avatar {
-    width: 32px;
-    height: 32px;
+    width: 32px; height: 32px;
     border-radius: 8px;
     display: flex;
     align-items: center;
@@ -212,6 +203,13 @@
 
   .bubble p + p { margin-top: 8px; }
 
+  .bubble img {
+    max-width: 100%;
+    border-radius: 8px;
+    margin-top: 8px;
+    display: block;
+  }
+
   .typing {
     display: flex;
     gap: 4px;
@@ -220,8 +218,7 @@
   }
 
   .typing span {
-    width: 6px;
-    height: 6px;
+    width: 6px; height: 6px;
     border-radius: 50%;
     background: var(--accent);
     animation: blink 1.2s infinite;
@@ -272,8 +269,7 @@
     background: var(--accent);
     border: none;
     color: white;
-    width: 44px;
-    height: 44px;
+    width: 44px; height: 44px;
     border-radius: 10px;
     cursor: pointer;
     display: flex;
@@ -286,7 +282,6 @@
   #send-btn:hover { opacity: 0.85; }
   #send-btn:active { transform: scale(0.95); }
   #send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
   #send-btn svg { width: 18px; height: 18px; }
 
   .hint {
@@ -331,6 +326,18 @@
   }
 
   .saved-indicator.show { opacity: 1; }
+
+  .search-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-family: 'Space Mono', monospace;
+    color: var(--green);
+    border: 1px solid var(--green);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    opacity: 0.7;
+  }
 </style>
 </head>
 <body>
@@ -338,7 +345,7 @@
 <header>
   <div class="header-left">
     <div class="pulse-dot"></div>
-    <div class="title">YOUR AI PARTNER — <span>CLARENCE</span></div>
+    <div class="title">YOUR AI PARTNER â€” <span>CLARENCE</span></div>
   </div>
   <div class="header-actions">
     <button class="btn-sm" onclick="toggleMemory()">Memory</button>
@@ -347,7 +354,7 @@
 </header>
 
 <div id="memory-panel">
-  <div class="memory-label">Persistent Memory — what your AI always knows about you</div>
+  <div class="memory-label">Persistent Memory â€” what your AI always knows about you</div>
   <textarea id="memory-text" placeholder="Write anything you want your AI partner to always remember: your goals, current projects, background, what you're working toward..."></textarea>
   <div class="memory-actions">
     <button class="btn-save" onclick="saveMemory()">Save memory</button>
@@ -359,7 +366,7 @@
 
 <div id="input-area">
   <div class="input-row">
-    <textarea id="user-input" placeholder="Share an idea, problem, or thought..." rows="1"></textarea>
+    <textarea id="user-input" placeholder="Share an idea, ask anything, or say 'generate image of...'" rows="1"></textarea>
     <button id="send-btn" onclick="sendMessage()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -367,7 +374,7 @@
       </svg>
     </button>
   </div>
-  <div class="hint">Enter to send · Shift+Enter for new line</div>
+  <div class="hint">Enter to send Â· Shift+Enter for new line Â· "generate image of..." for images</div>
 </div>
 
 <script>
@@ -380,9 +387,7 @@
   const sendBtn = document.getElementById('send-btn');
   const memoryText = document.getElementById('memory-text');
 
-  function loadMemory() {
-    return localStorage.getItem(MEMORY_KEY) || '';
-  }
+  function loadMemory() { return localStorage.getItem(MEMORY_KEY) || ''; }
 
   function saveMemory() {
     localStorage.setItem(MEMORY_KEY, memoryText.value);
@@ -393,9 +398,7 @@
 
   function toggleMemory() {
     const panel = document.getElementById('memory-panel');
-    if (!panel.classList.contains('open')) {
-      memoryText.value = loadMemory();
-    }
+    if (!panel.classList.contains('open')) memoryText.value = loadMemory();
     panel.classList.toggle('open');
   }
 
@@ -410,9 +413,9 @@
   function showEmptyState() {
     chatEl.innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">⚡</div>
+        <div class="empty-icon">âš¡</div>
         <h2>What's on your mind, Clarence?</h2>
-        <p>Share an idea, a problem, or anything you're thinking about. I'll ask questions and help you build it out.</p>
+        <p>Share an idea, ask anything â€” or say "generate image of..." to create images.</p>
       </div>
     `;
   }
@@ -422,7 +425,12 @@
     if (es) es.remove();
   }
 
-  function addMessage(role, content) {
+  function getCurrentDate() {
+    const now = new Date();
+    return now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  }
+
+  function addMessage(role, content, isImage = false) {
     removeEmptyState();
     const msg = document.createElement('div');
     msg.className = `msg ${role}`;
@@ -433,7 +441,15 @@
 
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
-    bubble.innerHTML = formatText(content);
+
+    if (isImage) {
+      const img = document.createElement('img');
+      img.src = content;
+      img.alt = 'Generated image';
+      bubble.appendChild(img);
+    } else {
+      bubble.innerHTML = formatText(content);
+    }
 
     msg.appendChild(avatar);
     msg.appendChild(bubble);
@@ -443,18 +459,14 @@
 
   function formatText(text) {
     return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/\n\n/g, '</p><p>')
-      .replace(/\n/g, '<br>')
-      .replace(/^/, '<p>')
-      .replace(/$/, '</p>');
+      .replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>')
+      .replace(/^/, '<p>').replace(/$/, '</p>');
   }
 
-  function addTyping() {
+  function addTyping(label = '') {
     removeEmptyState();
     const msg = document.createElement('div');
     msg.className = 'msg ai';
@@ -465,8 +477,8 @@
     avatar.textContent = 'AI';
 
     const bubble = document.createElement('div');
-    bubble.className = 'bubble typing';
-    bubble.innerHTML = '<span></span><span></span><span></span>';
+    bubble.className = 'bubble';
+    bubble.innerHTML = `${label ? `<div class="search-badge">${label}</div>` : ''}<div class="typing"><span></span><span></span><span></span></div>`;
 
     msg.appendChild(avatar);
     msg.appendChild(bubble);
@@ -479,21 +491,51 @@
     if (t) t.remove();
   }
 
+  function isImageRequest(text) {
+    return /^(generate|create|make|draw|show me|give me)\s+(an?\s+)?image\s+of\b/i.test(text) ||
+           /^(generate|create|make|draw)\s+/i.test(text) && text.toLowerCase().includes('image');
+  }
+
   function buildSystemPrompt() {
     const memory = loadMemory();
+    const today = getCurrentDate();
     return `You are Clarence's personal AI thinking partner. Your entire purpose is to serve his best interests and help bring his ideas to life.
 
-Core principles you always follow:
-1. Always act in Clarence's best interest — not just what he wants to hear, but what genuinely helps him
-2. Ask clarifying questions before drawing conclusions — never assume you know what he means
-3. Help him develop his ideas fully — push them further, spot gaps, explore angles he hasn't considered
-4. Be direct and honest — if an idea has problems, say so and explain why
-5. Be a real thinking partner — challenge, explore, brainstorm with him, not just agree
-6. Keep memory continuity — reference what you know about him to give grounded, personalized responses
+TODAY'S DATE: ${today}. Always use this when answering anything time-sensitive. Never guess the date.
+
+Core principles:
+1. Always act in Clarence's best interest â€” not just what he wants to hear, but what genuinely helps him
+2. Ask clarifying questions before drawing conclusions â€” never assume you know what he means
+3. Help him develop his ideas fully â€” push them further, spot gaps, explore angles he hasn't considered
+4. Be direct and honest â€” if an idea has problems, say so and explain why
+5. Be a real thinking partner â€” challenge, explore, brainstorm, not just agree
+6. You have access to web search â€” use it whenever current or real-world information would help Clarence
+7. When you search the web, tell Clarence what you found and cite where it came from
 
 ${memory ? `CLARENCE'S PERSISTENT MEMORY (always keep this in mind):\n${memory}` : ''}
 
-Style: conversational, direct, no fluff. Ask one focused question at a time when you need clarity. Never lecture. Be genuinely invested in his success.`;
+Style: conversational, direct, no fluff. Ask one focused question at a time. Never lecture. Be genuinely invested in his success.`;
+  }
+
+  async function generateImage(prompt) {
+    addTyping('Generating image...');
+    try {
+      const response = await fetch('/api/image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
+      });
+      const data = await response.json();
+      removeTyping();
+      if (data.data && data.data[0] && data.data[0].url) {
+        addMessage('ai', data.data[0].url, true);
+      } else {
+        addMessage('ai', 'Image generation failed. Make sure your OpenAI API key is set in Vercel environment variables.');
+      }
+    } catch (err) {
+      removeTyping();
+      addMessage('ai', 'Image generation failed. Check your OpenAI API key in Vercel settings.');
+    }
   }
 
   async function sendMessage() {
@@ -506,8 +548,17 @@ Style: conversational, direct, no fluff. Ask one focused question at a time when
     sendBtn.disabled = true;
 
     addMessage('user', text);
+
+    if (isImageRequest(text)) {
+      await generateImage(text);
+      isLoading = false;
+      sendBtn.disabled = false;
+      inputEl.focus();
+      return;
+    }
+
     conversationHistory.push({ role: 'user', content: text });
-    addTyping();
+    addTyping('Thinking...');
 
     try {
       const response = await fetch('/api/chat', {
@@ -517,17 +568,26 @@ Style: conversational, direct, no fluff. Ask one focused question at a time when
           model: 'claude-sonnet-4-6',
           max_tokens: 1000,
           system: buildSystemPrompt(),
-          messages: conversationHistory
+          messages: conversationHistory,
+          tools: [{
+            type: "web_search_20250305",
+            name: "web_search"
+          }]
         })
       });
 
       const data = await response.json();
       removeTyping();
 
-      if (data.content && data.content[0]) {
-        const reply = data.content[0].text;
-        addMessage('ai', reply);
-        conversationHistory.push({ role: 'assistant', content: reply });
+      if (data.content && data.content.length > 0) {
+        const textBlocks = data.content.filter(b => b.type === 'text');
+        const reply = textBlocks.map(b => b.text).join('\n');
+        if (reply) {
+          addMessage('ai', reply);
+          conversationHistory.push({ role: 'assistant', content: data.content });
+        } else {
+          addMessage('ai', 'Something went wrong. Try again.');
+        }
       } else {
         addMessage('ai', 'Something went wrong. Try again.');
       }
