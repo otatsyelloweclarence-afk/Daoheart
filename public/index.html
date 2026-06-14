@@ -67,7 +67,7 @@
 
   .title span { color: var(--accent); }
 
-  .header-actions { display: flex; gap: 8px; }
+  .header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
   .btn-sm {
     background: transparent;
@@ -203,13 +203,6 @@
 
   .bubble p + p { margin-top: 8px; }
 
-  .bubble img {
-    max-width: 100%;
-    border-radius: 8px;
-    margin-top: 8px;
-    display: block;
-  }
-
   .typing {
     display: flex;
     gap: 4px;
@@ -317,27 +310,17 @@
     line-height: 1.6;
   }
 
-  .saved-indicator {
+  .status-bar {
     font-size: 11px;
-    color: var(--green);
+    color: var(--text-muted);
     font-family: 'Space Mono', monospace;
-    opacity: 0;
-    transition: opacity 0.3s;
+    margin-top: 6px;
+    min-height: 16px;
   }
 
-  .saved-indicator.show { opacity: 1; }
-
-  .search-badge {
-    display: inline-block;
-    font-size: 10px;
-    font-family: 'Space Mono', monospace;
-    color: var(--green);
-    border: 1px solid var(--green);
-    padding: 2px 6px;
-    border-radius: 4px;
-    margin-bottom: 6px;
-    opacity: 0.7;
-  }
+  .status-bar.synced { color: var(--green); }
+  .status-bar.syncing { color: var(--accent); }
+  .status-bar.error { color: var(--red); }
 </style>
 </head>
 <body>
@@ -354,11 +337,11 @@
 </header>
 
 <div id="memory-panel">
-  <div class="memory-label">Persistent Memory â€” what your AI always knows about you</div>
+  <div class="memory-label">Persistent Memory â€” synced across all your devices</div>
   <textarea id="memory-text" placeholder="Write anything you want your AI partner to always remember: your goals, current projects, background, what you're working toward..."></textarea>
   <div class="memory-actions">
-    <button class="btn-save" onclick="saveMemory()">Save memory</button>
-    <span class="saved-indicator" id="saved-indicator">Saved</span>
+    <button class="btn-save" onclick="saveMemory()">Save & sync memory</button>
+    <span id="memory-status" class="status-bar"></span>
   </div>
 </div>
 
@@ -366,7 +349,7 @@
 
 <div id="input-area">
   <div class="input-row">
-    <textarea id="user-input" placeholder="Share an idea, ask anything, or say 'generate image of...'" rows="1"></textarea>
+    <textarea id="user-input" placeholder="Share an idea, ask anything..." rows="1"></textarea>
     <button id="send-btn" onclick="sendMessage()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -374,11 +357,11 @@
       </svg>
     </button>
   </div>
-  <div class="hint">Enter to send Â· Shift+Enter for new line Â· "generate image of..." for images</div>
+  <div id="sync-status" class="status-bar"></div>
 </div>
 
 <script>
-  const MEMORY_KEY = 'clarence_ai_memory';
+  const MEMORY_ID = 'clarence_memory';
   let conversationHistory = [];
   let isLoading = false;
 
@@ -386,20 +369,57 @@
   const inputEl = document.getElementById('user-input');
   const sendBtn = document.getElementById('send-btn');
   const memoryText = document.getElementById('memory-text');
+  const memoryStatus = document.getElementById('memory-status');
+  const syncStatus = document.getElementById('sync-status');
 
-  function loadMemory() { return localStorage.getItem(MEMORY_KEY) || ''; }
-
-  function saveMemory() {
-    localStorage.setItem(MEMORY_KEY, memoryText.value);
-    const indicator = document.getElementById('saved-indicator');
-    indicator.classList.add('show');
-    setTimeout(() => indicator.classList.remove('show'), 2000);
+  // --- Supabase sync ---
+  async function loadMemoryFromCloud() {
+    try {
+      const res = await fetch(`/api/sync?id=${MEMORY_ID}`);
+      const data = await res.json();
+      return data.content || '';
+    } catch {
+      return localStorage.getItem('clarence_memory_backup') || '';
+    }
   }
 
-  function toggleMemory() {
+  async function saveMemoryToCloud(content) {
+    localStorage.setItem('clarence_memory_backup', content);
+    const res = await fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: MEMORY_ID, content })
+    });
+    if (!res.ok) throw new Error('Sync failed');
+  }
+
+  async function saveMemory() {
+    memoryStatus.textContent = 'Syncing...';
+    memoryStatus.className = 'status-bar syncing';
+    try {
+      await saveMemoryToCloud(memoryText.value);
+      memoryStatus.textContent = 'Synced across all devices';
+      memoryStatus.className = 'status-bar synced';
+      setTimeout(() => { memoryStatus.textContent = ''; memoryStatus.className = 'status-bar'; }, 3000);
+    } catch {
+      memoryStatus.textContent = 'Sync failed â€” saved locally';
+      memoryStatus.className = 'status-bar error';
+    }
+  }
+
+  async function toggleMemory() {
     const panel = document.getElementById('memory-panel');
-    if (!panel.classList.contains('open')) memoryText.value = loadMemory();
-    panel.classList.toggle('open');
+    if (!panel.classList.contains('open')) {
+      memoryStatus.textContent = 'Loading...';
+      memoryStatus.className = 'status-bar syncing';
+      panel.classList.add('open');
+      const content = await loadMemoryFromCloud();
+      memoryText.value = content;
+      memoryStatus.textContent = '';
+      memoryStatus.className = 'status-bar';
+    } else {
+      panel.classList.remove('open');
+    }
   }
 
   function clearChat() {
@@ -415,7 +435,7 @@
       <div class="empty-state">
         <div class="empty-icon">âš¡</div>
         <h2>What's on your mind, Clarence?</h2>
-        <p>Share an idea, ask anything â€” or say "generate image of..." to create images.</p>
+        <p>Share an idea or ask anything. Memory syncs across all your devices.</p>
       </div>
     `;
   }
@@ -426,11 +446,10 @@
   }
 
   function getCurrentDate() {
-    const now = new Date();
-    return now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    return new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   }
 
-  function addMessage(role, content, isImage = false) {
+  function addMessage(role, content) {
     removeEmptyState();
     const msg = document.createElement('div');
     msg.className = `msg ${role}`;
@@ -441,15 +460,7 @@
 
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
-
-    if (isImage) {
-      const img = document.createElement('img');
-      img.src = content;
-      img.alt = 'Generated image';
-      bubble.appendChild(img);
-    } else {
-      bubble.innerHTML = formatText(content);
-    }
+    bubble.innerHTML = formatText(content);
 
     msg.appendChild(avatar);
     msg.appendChild(bubble);
@@ -466,7 +477,7 @@
       .replace(/^/, '<p>').replace(/$/, '</p>');
   }
 
-  function addTyping(label = '') {
+  function addTyping() {
     removeEmptyState();
     const msg = document.createElement('div');
     msg.className = 'msg ai';
@@ -477,8 +488,8 @@
     avatar.textContent = 'AI';
 
     const bubble = document.createElement('div');
-    bubble.className = 'bubble';
-    bubble.innerHTML = `${label ? `<div class="search-badge">${label}</div>` : ''}<div class="typing"><span></span><span></span><span></span></div>`;
+    bubble.className = 'bubble typing';
+    bubble.innerHTML = '<span></span><span></span><span></span>';
 
     msg.appendChild(avatar);
     msg.appendChild(bubble);
@@ -491,17 +502,12 @@
     if (t) t.remove();
   }
 
-  function isImageRequest(text) {
-    return /^(generate|create|make|draw|show me|give me)\s+(an?\s+)?image\s+of\b/i.test(text) ||
-           /^(generate|create|make|draw)\s+/i.test(text) && text.toLowerCase().includes('image');
-  }
-
-  function buildSystemPrompt() {
-    const memory = loadMemory();
+  async function buildSystemPrompt() {
+    const memory = await loadMemoryFromCloud();
     const today = getCurrentDate();
     return `You are Clarence's personal AI thinking partner. Your entire purpose is to serve his best interests and help bring his ideas to life.
 
-TODAY'S DATE: ${today}. Always use this when answering anything time-sensitive. Never guess the date.
+TODAY'S DATE: ${today}. Always use this for anything time-sensitive. Never guess the date.
 
 Core principles:
 1. Always act in Clarence's best interest â€” not just what he wants to hear, but what genuinely helps him
@@ -509,33 +515,12 @@ Core principles:
 3. Help him develop his ideas fully â€” push them further, spot gaps, explore angles he hasn't considered
 4. Be direct and honest â€” if an idea has problems, say so and explain why
 5. Be a real thinking partner â€” challenge, explore, brainstorm, not just agree
-6. You have access to web search â€” use it whenever current or real-world information would help Clarence
-7. When you search the web, tell Clarence what you found and cite where it came from
+6. Use web search whenever current or real-world information would help Clarence
+7. When you search the web, summarize what you found and where it came from
 
 ${memory ? `CLARENCE'S PERSISTENT MEMORY (always keep this in mind):\n${memory}` : ''}
 
 Style: conversational, direct, no fluff. Ask one focused question at a time. Never lecture. Be genuinely invested in his success.`;
-  }
-
-  async function generateImage(prompt) {
-    addTyping('Generating image...');
-    try {
-      const response = await fetch('/api/image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt })
-      });
-      const data = await response.json();
-      removeTyping();
-      if (data.data && data.data[0] && data.data[0].url) {
-        addMessage('ai', data.data[0].url, true);
-      } else {
-        addMessage('ai', 'Image generation failed. Make sure your OpenAI API key is set in Vercel environment variables.');
-      }
-    } catch (err) {
-      removeTyping();
-      addMessage('ai', 'Image generation failed. Check your OpenAI API key in Vercel settings.');
-    }
   }
 
   async function sendMessage() {
@@ -548,31 +533,21 @@ Style: conversational, direct, no fluff. Ask one focused question at a time. Nev
     sendBtn.disabled = true;
 
     addMessage('user', text);
-
-    if (isImageRequest(text)) {
-      await generateImage(text);
-      isLoading = false;
-      sendBtn.disabled = false;
-      inputEl.focus();
-      return;
-    }
-
     conversationHistory.push({ role: 'user', content: text });
-    addTyping('Thinking...');
+    addTyping();
 
     try {
+      const systemPrompt = await buildSystemPrompt();
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
           max_tokens: 1000,
-          system: buildSystemPrompt(),
+          system: systemPrompt,
           messages: conversationHistory,
-          tools: [{
-            type: "web_search_20250305",
-            name: "web_search"
-          }]
+          tools: [{ type: "web_search_20250305", name: "web_search" }]
         })
       });
 
